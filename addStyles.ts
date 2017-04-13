@@ -121,7 +121,7 @@ let singletonCounter = 0;
 const styleElementsInsertedAtTop: StyleElement[] = [];
 const fixUrls = require("./fixUrls");
 
-export default function (list: Item[], options: Options) {
+export = function (list: Item[], options: Options) {
 	if (typeof DEBUG !== "undefined" && DEBUG) {
 		if (typeof document !== "object") throw new Error("The style-loader cannot be used in a non-browser environment");
 	}
