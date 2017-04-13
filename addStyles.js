@@ -4,7 +4,20 @@
 */
 "use strict";
 exports.__esModule = true;
-var stylesInDom = {};
+var stylesInDom = (function () {
+    var cache = {};
+    return {
+        get: function (style) {
+            return cache[style.id];
+        },
+        set: function (style, domStyle) {
+            cache[style.id] = domStyle;
+        },
+        "delete": function (style) {
+            delete cache[style.id];
+        }
+    };
+})();
 function memoize(fn) {
     var memo;
     return function (input) {
@@ -46,21 +59,24 @@ function default_1(list, options) {
     options.attrs = typeof options.attrs === "object" ? options.attrs : {};
     // Force single-tag solution on IE6-9, which has a hard limit on the # of <style>
     // tags it will allow on a page
-    if (typeof options.singleton === "undefined")
+    if (options.singleton === undefined) {
         options.singleton = isOldIE();
+    }
     // By default, add <style> tags to the <head> element
-    if (typeof options.insertInto === "undefined")
+    if (options.insertInto === undefined) {
         options.insertInto = "head";
+    }
     // By default, add <style> tags to the bottom of the target
-    if (typeof options.insertAt === "undefined")
+    if (options.insertAt === undefined) {
         options.insertAt = "bottom";
+    }
     var styles = listToStyles(list);
     addStylesToDom(styles, options);
     return function update(newList) {
         var mayRemove = [];
         for (var i = 0; i < styles.length; i++) {
-            var item = styles[i];
-            var domStyle = stylesInDom[item.id];
+            var style = styles[i];
+            var domStyle = stylesInDom.get(style);
             domStyle.refs--;
             mayRemove.push(domStyle);
         }
@@ -74,7 +90,7 @@ function default_1(list, options) {
                 for (var j = 0; j < domStyle.parts.length; j++) {
                     domStyle.parts[j]();
                 }
-                delete stylesInDom[domStyle.id];
+                stylesInDom["delete"](domStyle);
             }
         }
     };
@@ -84,7 +100,7 @@ exports["default"] = default_1;
 function addStylesToDom(styles, options) {
     for (var i = 0; i < styles.length; i++) {
         var item = styles[i];
-        var domStyle = stylesInDom[item.id];
+        var domStyle = stylesInDom.get(item);
         if (domStyle) {
             domStyle.refs++;
             var j = void 0;
@@ -100,28 +116,25 @@ function addStylesToDom(styles, options) {
             for (var j = 0; j < item.parts.length; j++) {
                 parts.push(addStyle(item.parts[j], options));
             }
-            stylesInDom[item.id] = { id: item.id, refs: 1, parts: parts };
+            stylesInDom.set(item, { id: item.id, refs: 1, parts: parts });
         }
     }
 }
 function listToStyles(list) {
-    var styles = [];
+    var result = [];
     var newStyles = {};
     for (var i = 0; i < list.length; i++) {
         var item = list[i];
-        var id = item[0];
-        var css = item[1];
-        var media = item[2];
-        var sourceMap = item[3];
+        var id = item[0], css = item[1], media = item[2], sourceMap = item[3];
         var part = { css: css, media: media, sourceMap: sourceMap };
         if (!newStyles[id]) {
-            styles.push(newStyles[id] = { id: id, parts: [part] });
+            result.push(newStyles[id] = { id: id, parts: [part] });
         }
         else {
             newStyles[id].parts.push(part);
         }
     }
-    return styles;
+    return result;
 }
 function insertStyleElement(options, styleElement) {
     var styleTarget = getElement(options.insertInto);
@@ -207,8 +220,9 @@ function addStyle(obj, options) {
     update(obj);
     return function updateStyle(newObj) {
         if (newObj) {
-            if (newObj.css === obj.css && newObj.media === obj.media && newObj.sourceMap === obj.sourceMap)
+            if (newObj.css === obj.css && newObj.media === obj.media && newObj.sourceMap === obj.sourceMap) {
                 return;
+            }
             update(obj = newObj);
         }
         else {

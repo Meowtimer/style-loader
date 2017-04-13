@@ -3,28 +3,28 @@
 	Author Tobias Koppers @sokra
 */
 
-interface Item {
-	0: number;
-	1: string;
-	2: string;
-	3: string;
+interface Item extends Array<string | number> {
+	readonly 0: number;
+	readonly 1: string;
+	readonly 2: string;
+	readonly 3: string;
 }
 
 interface Style {
-	id: number;
-	parts: Part[];
+	readonly id: number;
+	readonly parts: Part[];
 }
 
 interface StyleInDOM {
-	id: number;
+	readonly id: number;
 	refs: number;
-	parts: ((part?: Part) => void)[];
+	readonly parts: ((part?: Part) => void)[];
 }
 
 interface Part {
-	css: string;
-	media: string;
-	sourceMap: string;
+	readonly css: string;
+	readonly media: string;
+	readonly sourceMap: string;
 }
 
 interface Options {
@@ -39,20 +39,33 @@ interface Options {
 }
 
 interface Obj {
-	css: string;
-	sourceMap: string;
-	media: string;
+	readonly css: string;
+	readonly sourceMap: string;
+	readonly media: string;
 }
 
 interface StyleElement extends HTMLStyleElement {
-	styleSheet?: {
+	readonly styleSheet?: {
 		cssText: string;
 	}
 }
 
 type Styles = Style[];
 
-const stylesInDom: { [key: number]: StyleInDOM } = {};
+const stylesInDom = (() => {
+	const cache: { [id: number]: StyleInDOM } = {};
+	return {
+		get(style: Style): StyleInDOM {
+			return cache[style.id];
+		},
+		set(style: Style, domStyle: StyleInDOM) {
+			cache[style.id] = domStyle;
+		},
+		delete(style: StyleInDOM) {
+			delete cache[style.id];
+		}
+	};
+})();
 
 declare const DEBUG: boolean;
 declare function unescape(str: string): string;
@@ -102,13 +115,19 @@ export default function (list: Item[], options: Options) {
 
 	// Force single-tag solution on IE6-9, which has a hard limit on the # of <style>
 	// tags it will allow on a page
-	if (typeof options.singleton === "undefined") options.singleton = isOldIE();
+	if (options.singleton === undefined) {
+		options.singleton = isOldIE();
+	}
 
 	// By default, add <style> tags to the <head> element
-	if (typeof options.insertInto === "undefined") options.insertInto = "head";
+	if (options.insertInto === undefined) {
+		options.insertInto = "head";
+	}
 
 	// By default, add <style> tags to the bottom of the target
-	if (typeof options.insertAt === "undefined") options.insertAt = "bottom";
+	if (options.insertAt === undefined) {
+		options.insertAt = "bottom";
+	}
 
 	const styles = listToStyles(list);
 	addStylesToDom(styles, options);
@@ -116,8 +135,8 @@ export default function (list: Item[], options: Options) {
 	return function update(newList: Item[]) {
 		const mayRemove: StyleInDOM[] = [];
 		for (let i = 0; i < styles.length; i++) {
-			const item = styles[i];
-			const domStyle = stylesInDom[item.id];
+			const style = styles[i];
+			const domStyle = stylesInDom.get(style);
 			domStyle.refs--;
 			mayRemove.push(domStyle);
 		}
@@ -131,7 +150,7 @@ export default function (list: Item[], options: Options) {
 				for (let j = 0; j < domStyle.parts.length; j++) {
 					domStyle.parts[j]();
 				}
-				delete stylesInDom[domStyle.id];
+				stylesInDom.delete(domStyle);
 			}
 		}
 	};
@@ -140,7 +159,7 @@ export default function (list: Item[], options: Options) {
 function addStylesToDom(styles: Style[], options: Options) {
 	for (let i = 0; i < styles.length; i++) {
 		const item = styles[i];
-		const domStyle = stylesInDom[item.id];
+		const domStyle = stylesInDom.get(item);
 		if (domStyle) {
 			domStyle.refs++;
 			let j: number;
@@ -155,28 +174,25 @@ function addStylesToDom(styles: Style[], options: Options) {
 			for (let j = 0; j < item.parts.length; j++) {
 				parts.push(addStyle(item.parts[j], options));
 			}
-			stylesInDom[item.id] = { id: item.id, refs: 1, parts: parts };
+			stylesInDom.set(item, { id: item.id, refs: 1, parts });
 		}
 	}
 }
 
 function listToStyles(list: Item[]): Styles {
-	const styles = [];
+	const result = [];
 	const newStyles: { [id: number]: { id: number; parts: Part[] } } = {};
 	for (let i = 0; i < list.length; i++) {
 		const item = list[i];
-		const id = item[0];
-		const css = item[1];
-		const media = item[2];
-		const sourceMap = item[3];
+		const [id, css, media, sourceMap] = item;
 		const part: Part = { css, media, sourceMap };
 		if (!newStyles[id]) {
-			styles.push(newStyles[id] = { id: id, parts: [part] });
+			result.push(newStyles[id] = { id: id, parts: [part] });
 		} else {
 			newStyles[id].parts.push(part);
 		}
 	}
-	return styles;
+	return result;
 }
 
 function insertStyleElement(options: Options, styleElement: StyleElement) {
@@ -270,8 +286,9 @@ function addStyle(obj: Obj, options: Options) {
 
 	return function updateStyle(newObj: Obj) {
 		if (newObj) {
-			if (newObj.css === obj.css && newObj.media === obj.media && newObj.sourceMap === obj.sourceMap)
+			if (newObj.css === obj.css && newObj.media === obj.media && newObj.sourceMap === obj.sourceMap) {
 				return;
+			}
 			update(obj = newObj);
 		} else {
 			remove();
