@@ -3,20 +3,20 @@
     Author Tobias Koppers @sokra
 */
 "use strict";
-const stylesInDom = (() => {
-    const cache = {};
+var stylesInDom = (function () {
+    var cache = {};
     return {
-        get(style) {
-            const existing = cache[style.id];
-            return existing ? existing.filter(s => s[0] === style).map(s => s[1])[0] : undefined;
+        get: function (style) {
+            var existing = cache[style.id];
+            return existing ? existing.filter(function (s) { return s[0] === style; }).map(function (s) { return s[1]; })[0] : undefined;
         },
-        set(style, domStyle) {
-            const existing = cache[style.id];
+        set: function (style, domStyle) {
+            var existing = cache[style.id];
             if (!existing) {
                 cache[style.id] = [[style, domStyle]];
             }
             else {
-                for (let i = 0; i < existing.length; i++) {
+                for (var i = 0; i < existing.length; i++) {
                     if (existing[i][0] === style) {
                         existing[i][1] = domStyle;
                         return;
@@ -25,9 +25,9 @@ const stylesInDom = (() => {
                 existing.push([style, domStyle]);
             }
         },
-        delete(style) {
-            let existing = cache[style.id];
-            existing = existing ? existing.filter(s => s[1] !== style) : existing;
+        delete: function (style) {
+            var existing = cache[style.id];
+            existing = existing ? existing.filter(function (s) { return s[1] !== style; }) : existing;
             if (!existing || !existing.length) {
                 delete cache[style.id];
             }
@@ -35,7 +35,7 @@ const stylesInDom = (() => {
     };
 })();
 function memoize(fn) {
-    let memo;
+    var memo;
     return function (input) {
         if (memo === undefined) {
             memo = fn.bind(this)(input);
@@ -43,7 +43,7 @@ function memoize(fn) {
         return memo;
     };
 }
-const isOldIE = memoize(function () {
+var isOldIE = memoize(function () {
     // Test for IE <= 9 as proposed by Browserhacks
     // @see http://browserhacks.com/#hack-e71d8692f65334173fee715c222cb805
     // Tests for existence of standard globals is to allow style-loader 
@@ -51,8 +51,8 @@ const isOldIE = memoize(function () {
     // @see https://github.com/webpack-contrib/style-loader/issues/177
     return window && document && document.all && !window.atob;
 });
-const getElement = (function (fn) {
-    const memo = {};
+var getElement = (function (fn) {
+    var memo = {};
     return function (selector) {
         if (memo[selector] === undefined) {
             memo[selector] = fn.bind(this)(selector);
@@ -62,16 +62,17 @@ const getElement = (function (fn) {
 })(function (styleTarget) {
     return document.querySelector(styleTarget);
 });
-let singletonElement = null;
-let singletonCounter = 0;
-const styleElementsInsertedAtTop = [];
-const fixUrls = require("./fixUrls");
+var singletonElement = null;
+var singletonCounter = 0;
+var styleElementsInsertedAtTop = [];
+var fixUrls = require("./fixUrls");
 function addStylesToDom(styles, options) {
-    for (const style of styles) {
-        const domStyle = stylesInDom.get(style);
+    for (var _i = 0, styles_1 = styles; _i < styles_1.length; _i++) {
+        var style = styles_1[_i];
+        var domStyle = stylesInDom.get(style);
         if (domStyle) {
             domStyle.refs++;
-            let j;
+            var j = void 0;
             for (j = 0; j < domStyle.parts.length; j++) {
                 domStyle.parts[j](style.parts[j]);
             }
@@ -80,21 +81,21 @@ function addStylesToDom(styles, options) {
             }
         }
         else {
-            const parts = [];
-            for (let j = 0; j < style.parts.length; j++) {
+            var parts = [];
+            for (var j = 0; j < style.parts.length; j++) {
                 parts.push(addStyle(style.parts[j], options));
             }
-            stylesInDom.set(style, { id: style.id, refs: 1, parts });
+            stylesInDom.set(style, { id: style.id, refs: 1, parts: parts });
         }
     }
 }
 function listToStyles(list) {
-    const result = [];
-    const newStyles = {};
-    for (let i = 0; i < list.length; i++) {
-        const item = list[i];
-        const [id, css, media, sourceMap] = item;
-        const part = { css, media, sourceMap };
+    var result = [];
+    var newStyles = {};
+    for (var i = 0; i < list.length; i++) {
+        var item = list[i];
+        var id = item[0], css = item[1], media = item[2], sourceMap = item[3];
+        var part = { css: css, media: media, sourceMap: sourceMap };
         if (!newStyles[id]) {
             result.push(newStyles[id] = { id: id, parts: [part] });
         }
@@ -105,11 +106,11 @@ function listToStyles(list) {
     return result;
 }
 function insertStyleElement(options, styleElement) {
-    const styleTarget = getElement(options.insertInto);
+    var styleTarget = getElement(options.insertInto);
     if (!styleTarget) {
         throw new Error("Couldn't find a style target. This probably means that the value for the 'insertInto' parameter is invalid.");
     }
-    const lastStyleElementInsertedAtTop = styleElementsInsertedAtTop[styleElementsInsertedAtTop.length - 1];
+    var lastStyleElementInsertedAtTop = styleElementsInsertedAtTop[styleElementsInsertedAtTop.length - 1];
     if (options.insertAt === "top") {
         if (!lastStyleElementInsertedAtTop) {
             styleTarget.insertBefore(styleElement, styleTarget.firstChild);
@@ -131,20 +132,20 @@ function insertStyleElement(options, styleElement) {
 }
 function removeStyleElement(styleElement) {
     styleElement.parentNode.removeChild(styleElement);
-    const idx = styleElementsInsertedAtTop.indexOf(styleElement);
+    var idx = styleElementsInsertedAtTop.indexOf(styleElement);
     if (idx >= 0) {
         styleElementsInsertedAtTop.splice(idx, 1);
     }
 }
 function createStyleElement(options) {
-    const styleElement = document.createElement("style");
+    var styleElement = document.createElement("style");
     options.attrs.type = "text/css";
     attachTagAttrs(styleElement, options.attrs);
     insertStyleElement(options, styleElement);
     return styleElement;
 }
 function createLinkElement(options) {
-    const linkElement = document.createElement("link");
+    var linkElement = document.createElement("link");
     options.attrs.type = "text/css";
     options.attrs.rel = "stylesheet";
     attachTagAttrs(linkElement, options.attrs);
@@ -157,9 +158,9 @@ function attachTagAttrs(element, attrs) {
     });
 }
 function addStyle(obj, options) {
-    let styleElement, update, remove;
+    var styleElement, update, remove;
     if (options.singleton) {
-        const styleIndex = singletonCounter++;
+        var styleIndex = singletonCounter++;
         styleElement = singletonElement || (singletonElement = createStyleElement(options));
         update = applyToSingletonTag.bind(null, styleElement, styleIndex, false);
         remove = applyToSingletonTag.bind(null, styleElement, styleIndex, true);
@@ -198,21 +199,21 @@ function addStyle(obj, options) {
         }
     };
 }
-const replaceText = (function () {
-    const textStore = [];
+var replaceText = (function () {
+    var textStore = [];
     return function (index, replacement) {
         textStore[index] = replacement;
         return textStore.filter(Boolean).join('\n');
     };
 })();
 function applyToSingletonTag(styleElement, index, remove, obj) {
-    const css = remove ? "" : obj.css;
+    var css = remove ? "" : obj.css;
     if (styleElement.styleSheet) {
         styleElement.styleSheet.cssText = replaceText(index, css);
     }
     else {
-        const cssNode = document.createTextNode(css);
-        const childNodes = styleElement.childNodes;
+        var cssNode = document.createTextNode(css);
+        var childNodes = styleElement.childNodes;
         if (childNodes[index])
             styleElement.removeChild(childNodes[index]);
         if (childNodes.length) {
@@ -224,8 +225,8 @@ function applyToSingletonTag(styleElement, index, remove, obj) {
     }
 }
 function applyToTag(styleElement, obj) {
-    const css = obj.css;
-    const media = obj.media;
+    var css = obj.css;
+    var media = obj.media;
     if (media) {
         styleElement.setAttribute("media", media);
     }
@@ -240,14 +241,14 @@ function applyToTag(styleElement, obj) {
     }
 }
 function updateLink(linkElement, options, obj) {
-    let css = obj.css;
-    const sourceMap = obj.sourceMap;
+    var css = obj.css;
+    var sourceMap = obj.sourceMap;
     /* If convertToAbsoluteUrls isn't defined, but sourcemaps are enabled
     and there is no publicPath defined then lets turn convertToAbsoluteUrls
     on by default.  Otherwise default to the convertToAbsoluteUrls option
     directly
     */
-    const autoFixUrls = options.convertToAbsoluteUrls === undefined && sourceMap;
+    var autoFixUrls = options.convertToAbsoluteUrls === undefined && sourceMap;
     if (options.convertToAbsoluteUrls || autoFixUrls) {
         css = fixUrls(css);
     }
@@ -255,8 +256,8 @@ function updateLink(linkElement, options, obj) {
         // http://stackoverflow.com/a/26603875
         css += "\n/*# sourceMappingURL=data:application/json;base64," + btoa(unescape(encodeURIComponent(JSON.stringify(sourceMap)))) + " */";
     }
-    const blob = new Blob([css], { type: "text/css" });
-    const oldSrc = linkElement.href;
+    var blob = new Blob([css], { type: "text/css" });
+    var oldSrc = linkElement.href;
     linkElement.href = URL.createObjectURL(blob);
     if (oldSrc) {
         URL.revokeObjectURL(oldSrc);
@@ -282,23 +283,24 @@ module.exports = function (list, options) {
     if (options.insertAt === undefined) {
         options.insertAt = "bottom";
     }
-    const styles = listToStyles(list);
+    var styles = listToStyles(list);
     addStylesToDom(styles, options);
     return function update(newList) {
-        const mayRemove = [];
-        for (const style of styles) {
-            const domStyle = stylesInDom.get(style);
+        var mayRemove = [];
+        for (var _i = 0, styles_2 = styles; _i < styles_2.length; _i++) {
+            var style = styles_2[_i];
+            var domStyle = stylesInDom.get(style);
             domStyle.refs--;
             mayRemove.push(domStyle);
         }
         if (newList) {
-            const newStyles = listToStyles(newList);
+            var newStyles = listToStyles(newList);
             addStylesToDom(newStyles, options);
         }
-        for (let i = 0; i < mayRemove.length; i++) {
-            const domStyle = mayRemove[i];
+        for (var i = 0; i < mayRemove.length; i++) {
+            var domStyle = mayRemove[i];
             if (domStyle.refs === 0) {
-                for (let j = 0; j < domStyle.parts.length; j++) {
+                for (var j = 0; j < domStyle.parts.length; j++) {
                     domStyle.parts[j]();
                 }
                 stylesInDom.delete(domStyle);
