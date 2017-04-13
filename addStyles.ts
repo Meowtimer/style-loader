@@ -17,8 +17,8 @@ interface Style {
 
 interface StyleInDOM {
 	readonly id: number;
+	readonly parts: ((obj?: Obj) => void)[];
 	refs: number;
-	readonly parts: ((part?: Part) => void)[];
 }
 
 interface Part {
@@ -53,16 +53,32 @@ interface StyleElement extends HTMLStyleElement {
 type Styles = Style[];
 
 const stylesInDom = (() => {
-	const cache: { [id: number]: StyleInDOM } = {};
+	const cache: { [id: number]: [Style, StyleInDOM][] } = {};
 	return {
 		get(style: Style): StyleInDOM {
-			return cache[style.id];
+			const existing = cache[style.id];
+			return existing ? existing.filter(s => s[0] === style).map(s => s[1])[0] : undefined;
 		},
 		set(style: Style, domStyle: StyleInDOM) {
-			cache[style.id] = domStyle;
+			const existing = cache[style.id];
+			if (!existing) {
+				cache[style.id] = [[style, domStyle]];
+			} else {
+				for (let i = 0; i < existing.length; i++) {
+					if (existing[i][0] === style) {
+						existing[i][1] = domStyle;
+						return;
+					}
+				}
+				existing.push([style, domStyle]);
+			}
 		},
 		delete(style: StyleInDOM) {
-			delete cache[style.id];
+			let existing = cache[style.id];
+			existing = existing ? existing.filter(s => s[1] !== style) : existing;
+			if (!existing || !existing.length) {
+				delete cache[style.id];
+			}
 		}
 	};
 })();
@@ -134,8 +150,7 @@ export default function (list: Item[], options: Options) {
 
 	return function update(newList: Item[]) {
 		const mayRemove: StyleInDOM[] = [];
-		for (let i = 0; i < styles.length; i++) {
-			const style = styles[i];
+		for (const style of styles) {
 			const domStyle = stylesInDom.get(style);
 			domStyle.refs--;
 			mayRemove.push(domStyle);
@@ -157,24 +172,23 @@ export default function (list: Item[], options: Options) {
 };
 
 function addStylesToDom(styles: Style[], options: Options) {
-	for (let i = 0; i < styles.length; i++) {
-		const item = styles[i];
-		const domStyle = stylesInDom.get(item);
+	for (const style of styles) {
+		const domStyle = stylesInDom.get(style);
 		if (domStyle) {
 			domStyle.refs++;
 			let j: number;
 			for (j = 0; j < domStyle.parts.length; j++) {
-				domStyle.parts[j](item.parts[j]);
+				domStyle.parts[j](style.parts[j]);
 			}
-			for (; j < item.parts.length; j++) {
-				domStyle.parts.push(addStyle(item.parts[j], options));
+			for (; j < style.parts.length; j++) {
+				domStyle.parts.push(addStyle(style.parts[j], options));
 			}
 		} else {
 			const parts = [];
-			for (let j = 0; j < item.parts.length; j++) {
-				parts.push(addStyle(item.parts[j], options));
+			for (let j = 0; j < style.parts.length; j++) {
+				parts.push(addStyle(style.parts[j], options));
 			}
-			stylesInDom.set(item, { id: item.id, refs: 1, parts });
+			stylesInDom.set(style, { id: style.id, refs: 1, parts });
 		}
 	}
 }
@@ -250,11 +264,14 @@ function attachTagAttrs(element: Element, attrs: { [key: string]: string }) {
 	});
 }
 
-function addStyle(obj: Obj, options: Options) {
+type Update = (obj: Obj) => void;
+type Remove = (nothing?: undefined) => void;
+
+function addStyle(obj: Obj, options: Options): Update | Remove {
 	let
 		styleElement: StyleElement | HTMLLinkElement,
-		update: (obj: Obj) => void,
-		remove: () => void;
+		update: Update,
+		remove: Remove;
 
 	if (options.singleton) {
 		const styleIndex = singletonCounter++;

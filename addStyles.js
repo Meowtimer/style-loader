@@ -8,13 +8,30 @@ var stylesInDom = (function () {
     var cache = {};
     return {
         get: function (style) {
-            return cache[style.id];
+            var existing = cache[style.id];
+            return existing ? existing.filter(function (s) { return s[0] === style; }).map(function (s) { return s[1]; })[0] : undefined;
         },
         set: function (style, domStyle) {
-            cache[style.id] = domStyle;
+            var existing = cache[style.id];
+            if (!existing) {
+                cache[style.id] = [[style, domStyle]];
+            }
+            else {
+                for (var i = 0; i < existing.length; i++) {
+                    if (existing[i][0] === style) {
+                        existing[i][1] = domStyle;
+                        return;
+                    }
+                }
+                existing.push([style, domStyle]);
+            }
         },
         "delete": function (style) {
-            delete cache[style.id];
+            var existing = cache[style.id];
+            existing = existing ? existing.filter(function (s) { return s[1] !== style; }) : existing;
+            if (!existing || !existing.length) {
+                delete cache[style.id];
+            }
         }
     };
 })();
@@ -74,8 +91,8 @@ function default_1(list, options) {
     addStylesToDom(styles, options);
     return function update(newList) {
         var mayRemove = [];
-        for (var i = 0; i < styles.length; i++) {
-            var style = styles[i];
+        for (var _i = 0, styles_1 = styles; _i < styles_1.length; _i++) {
+            var style = styles_1[_i];
             var domStyle = stylesInDom.get(style);
             domStyle.refs--;
             mayRemove.push(domStyle);
@@ -98,25 +115,25 @@ function default_1(list, options) {
 exports["default"] = default_1;
 ;
 function addStylesToDom(styles, options) {
-    for (var i = 0; i < styles.length; i++) {
-        var item = styles[i];
-        var domStyle = stylesInDom.get(item);
+    for (var _i = 0, styles_2 = styles; _i < styles_2.length; _i++) {
+        var style = styles_2[_i];
+        var domStyle = stylesInDom.get(style);
         if (domStyle) {
             domStyle.refs++;
             var j = void 0;
             for (j = 0; j < domStyle.parts.length; j++) {
-                domStyle.parts[j](item.parts[j]);
+                domStyle.parts[j](style.parts[j]);
             }
-            for (; j < item.parts.length; j++) {
-                domStyle.parts.push(addStyle(item.parts[j], options));
+            for (; j < style.parts.length; j++) {
+                domStyle.parts.push(addStyle(style.parts[j], options));
             }
         }
         else {
             var parts = [];
-            for (var j = 0; j < item.parts.length; j++) {
-                parts.push(addStyle(item.parts[j], options));
+            for (var j = 0; j < style.parts.length; j++) {
+                parts.push(addStyle(style.parts[j], options));
             }
-            stylesInDom.set(item, { id: item.id, refs: 1, parts: parts });
+            stylesInDom.set(style, { id: style.id, refs: 1, parts: parts });
         }
     }
 }
