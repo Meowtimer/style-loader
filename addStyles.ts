@@ -288,8 +288,9 @@ function addStyle(obj: Obj, options: Options): Update | Remove {
 		update = updateLink.bind(null, styleElement, options);
 		remove = function () {
 			removeStyleElement(styleElement);
-			if ((styleElement as HTMLLinkElement).href)
+			if ((styleElement as HTMLLinkElement).href) {
 				URL.revokeObjectURL((styleElement as HTMLLinkElement).href);
+			}
 		};
 	} else {
 		styleElement = createStyleElement(options);
